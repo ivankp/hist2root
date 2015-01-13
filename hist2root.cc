@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cmath>
 
 #include <TFile.h>
 #include <TDirectory.h>
@@ -61,7 +62,7 @@ int main(int argc, char **argv)
           else if (!line.compare(0,9,"AidaPath=")) {
             name  = line.substr(9);
             break;
-          } else if (!line.compare(0,9,"Title=")) {
+          } else if (!line.compare(0,6,"Title=")) {
             title = line.substr(6);
             break;
           } else {
@@ -79,7 +80,7 @@ int main(int argc, char **argv)
             }
             bins.push_back(xhigh);
             vals.push_back(val);
-            errs.push_back((errminus+errplus)/2);
+            errs.push_back(max(errminus,errplus));
             break;
           }
         case End:
@@ -105,7 +106,7 @@ int main(int argc, char **argv)
             errs.resize(0);
             fsm = Begin;
           } else if (line[0]=='#') {
-            fsm=Bin;
+            fsm = Bin;
             continue;
           } else err(l, line, "Not an \"# END HISTOGRAM\"");
           break;
