@@ -104,8 +104,10 @@ int main(int argc, char **argv)
             vals.resize(0);
             errs.resize(0);
             fsm = Begin;
-          } else if (line[0]=='#') continue;
-          else err(l, line, "Not an \"# END HISTOGRAM\"");
+          } else if (line[0]=='#') {
+            fsm=Bin;
+            continue;
+          } else err(l, line, "Not an \"# END HISTOGRAM\"");
           break;
       }
     }
