@@ -16,9 +16,8 @@ EXE = hist2root
 
 all: $(EXE)
 
-$(EXE): %.cc
+$(EXE): %: %.cc
 	$(CPP) $(CFLAGS) $(ROOT_CFLAGS) $^ -o $@ $(ROOT_LIBS)
 
 clean:
 	rm -rf $(EXE)
-
