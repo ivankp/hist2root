@@ -42,7 +42,7 @@ int main(int argc, char **argv)
     vector<Double_t> bins, vals, errs;
     // bins.reserve(100);
     Double_t xlow, xhigh, val, errminus, errplus;
-    bool first_bin;
+    bool first_bin = false;
     TH1 *hist;
     line_t fsm = Begin;
     while ( getline (fin,line) ) {

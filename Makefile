@@ -5,7 +5,7 @@
 
 CPP := g++
 
-CFLAGS := -Wall -g -Isrc
+CFLAGS := -Wall -O3
 
 ROOT_CFLAGS := $(shell root-config --cflags)
 ROOT_LIBS   := $(shell root-config --libs)
