@@ -1,0 +1,10 @@
+# Compilation output
+hist2root
+
+# Computation output
+/*.root
+/*.pdf
+/*.out
+/*.err
+/*.hist
+
