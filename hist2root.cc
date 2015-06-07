@@ -10,9 +10,11 @@
 #include <vector>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 
 #include <TFile.h>
 #include <TDirectory.h>
+#include <TKey.h>
 #include <TH1.h>
 
 using namespace std;
@@ -23,17 +25,39 @@ void err(int l, const string& line, const string& comment) {
   exit(1);
 }
 
+void scale(TDirectory* dir, double factor) noexcept {
+  TIter nextkey(dir->GetListOfKeys());
+  TKey *key;
+  TObject *obj;
+  while ((key = static_cast<TKey*>(nextkey()))) {
+    obj = key->ReadObj();
+    if (obj->InheritsFrom(TDirectory::Class())) {
+      scale(static_cast<TDirectory*>(obj),factor);
+    } else if (obj->InheritsFrom(TH1D::Class())) {
+      TH1D *h = static_cast<TH1D*>(obj);
+      // h->Scale(factor);
+      h->SetAt(0.,0);
+      const Int_t n = h->GetNbinsX();
+      for (Int_t i=1; i<=n; ++i)
+        h->SetAt(h->GetAt(i)*factor/h->GetBinWidth(i),i);
+      h->SetAt(n+1,0);
+    }
+  }
+}
+
 enum line_t { Begin, Prop, Bin, End };
 
 int main(int argc, char **argv)
 {
-  if (argc!=3) {
-    cout << "Usage: " << argv[0] << " in.hist out.root" << endl;
+  if (argc!=3 && argc!=4) {
+    cout << "Usage: " << argv[0] << " in.hist out.root toweights" << endl;
     return 0;
   }
 
   TFile *fout = new TFile(argv[2],"recreate");
   if (fout->IsZombie()) exit(1);
+
+  const bool toweights = (argc==4 && !strcmp(argv[2],"toweights"));
 
   string line;
   ifstream fin(argv[1]);
@@ -43,7 +67,7 @@ int main(int argc, char **argv)
     string name, title;
     vector<Double_t> bins, vals, errs;
     // bins.reserve(100);
-    Double_t xlow, xhigh, val, errminus, errplus;
+    Double_t xlow, xhigh, val, errminus, errplus, events=1;
     bool first_bin = false;
     TH1 *hist;
     line_t fsm = Begin;
@@ -55,6 +79,10 @@ int main(int argc, char **argv)
         case Begin:
           if (!line.compare(0,17,"# BEGIN HISTOGRAM")) {
             fsm = Prop;
+          } else if (toweights && !line.compare(0,12,"### Finalize")) {
+            // ### Finalize: groups 50000000, events 50000000 (binned 36067018) [trials 50000000]
+            const size_t n = line.find("events",13) + 7;
+            events = atof(line.substr(n,line.find(' ',n)).c_str());
           } else if (line[0]=='#') continue;
           else err(l, line, "Not a comment or \"# BEGIN HISTOGRAM\"");
           break;
@@ -113,6 +141,14 @@ int main(int argc, char **argv)
           break;
       }
     }
+
+    if (toweights) {
+      scale(fout,1./events);
+
+      fout->cd();
+      (new TH1D("N","",1,0,1))->Fill(0.5,events);
+    }
+
     fin.close();
   } else {
     cout << "Unable to open file " << argv[1] << endl;
