@@ -14,7 +14,6 @@
 
 #include <TFile.h>
 #include <TDirectory.h>
-#include <TKey.h>
 #include <TH1.h>
 
 using namespace std;
@@ -26,11 +25,9 @@ void err(int l, const string& line, const string& comment) {
 }
 
 void scale(TDirectory* dir, double factor) noexcept {
-  TIter nextkey(dir->GetListOfKeys());
-  TKey *key;
+  TIter next(dir->GetList());
   TObject *obj;
-  while ((key = static_cast<TKey*>(nextkey()))) {
-    obj = key->ReadObj();
+  while ((obj = next())) {
     if (obj->InheritsFrom(TDirectory::Class())) {
       scale(static_cast<TDirectory*>(obj),factor);
     } else if (obj->InheritsFrom(TH1D::Class())) {
@@ -39,7 +36,7 @@ void scale(TDirectory* dir, double factor) noexcept {
       h->SetAt(0.,0);
       const Int_t n = h->GetNbinsX();
       for (Int_t i=1; i<=n; ++i)
-        h->SetAt(h->GetAt(i)*factor/h->GetBinWidth(i),i);
+        h->SetAt(h->GetAt(i)*h->GetBinWidth(i)/factor,i);
       h->SetAt(n+1,0);
     }
   }
@@ -57,7 +54,8 @@ int main(int argc, char **argv)
   TFile *fout = new TFile(argv[2],"recreate");
   if (fout->IsZombie()) exit(1);
 
-  const bool toweights = (argc==4 && !strcmp(argv[2],"toweights"));
+  const bool toweights = (argc==4 && !strcmp(argv[3],"toweights"));
+  TH1::SetDefaultSumw2(false);
 
   string line;
   ifstream fin(argv[1]);
@@ -65,7 +63,7 @@ int main(int argc, char **argv)
     cout << "\033[32mReading:\033[0m " << argv[1] << endl;
     int l = 0;
     string name, title;
-    vector<Double_t> bins, vals, errs;
+    vector<Double_t> bins, vals; //, errs;
     // bins.reserve(100);
     Double_t xlow, xhigh, val, errminus, errplus, events=1;
     bool first_bin = false;
@@ -109,7 +107,7 @@ int main(int argc, char **argv)
             }
             bins.push_back(xhigh);
             vals.push_back(val);
-            errs.push_back(max(errminus,errplus));
+            // errs.push_back(max(errminus,errplus));
             break;
           }
         case End:
@@ -126,13 +124,13 @@ int main(int argc, char **argv)
             );
             for (size_t i=0,n=vals.size();i<n;++i) {
               hist->SetBinContent(i+1,vals[i]);
-              hist->SetBinError(i+1,errs[i]);
+              // hist->SetBinError(i+1,errs[i]);
             }
             name = title = string();
             bins.resize(0);
             // cout << bins.capacity() << endl;
             vals.resize(0);
-            errs.resize(0);
+            // errs.resize(0);
             fsm = Begin;
           } else if (line[0]=='#') {
             fsm = Bin;
@@ -142,11 +140,13 @@ int main(int argc, char **argv)
       }
     }
 
+    //fout->ls();
+
     if (toweights) {
       scale(fout,1./events);
 
       fout->cd();
-      (new TH1D("N","",1,0,1))->Fill(0.5,events);
+      (new TH1D("N","N",1,0,1))->Fill(0.5,events);
     }
 
     fin.close();
