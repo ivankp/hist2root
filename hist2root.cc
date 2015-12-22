@@ -43,25 +43,56 @@ void scale(TDirectory* dir, double factor) noexcept {
 }
 
 enum line_t { Begin, Prop, Bin, End };
+enum opt_t { opt_none, opt_i, opt_o };
 
 int main(int argc, char **argv)
 {
-  if (argc!=3 && argc!=4) {
-    cout << "Usage: " << argv[0] << " in.hist out.root toweights" << endl;
+  if (argc==1) {
+    cout << "Usage: " << argv[0] << " [-w] -i in.hist -o out.root" << endl;
     return 0;
   }
 
-  TFile *fout = new TFile(argv[2],"recreate");
-  if (fout->IsZombie()) exit(1);
+  bool toweights = false;
+  const char *fin_name=NULL, *fout_name=NULL;
 
-  const bool toweights = (argc==4 && !strcmp(argv[3],"toweights"));
+  for (int i=1; i<argc; ++i) {
+    static opt_t opt = opt_none;
+    switch (opt) {
+      case opt_i:
+        fin_name = argv[i];
+        opt = opt_none;
+        break;
+
+      case opt_o:
+        fout_name = argv[i];
+        opt = opt_none;
+        break;
+
+      case opt_none:
+        if (!strcmp(argv[i],"-w")) {
+          toweights = true;
+        } else if (!strcmp(argv[i],"-i")) {
+          opt = opt_i;
+        } else if (!strcmp(argv[i],"-o")) {
+          opt = opt_o;
+        }
+    }
+  }
+
+  if (fout_name==NULL) {
+    cout << "Arguments error: output file name not provided" << endl;
+    return 1;
+  }
+
+  TFile *fout = new TFile(fout_name,"recreate");
+  if (fout->IsZombie()) return 1;
+
   TH1::SetDefaultSumw2(false);
 
   string line;
-  ifstream fin(argv[1]);
-  if (fin.is_open()) {
-    cout << "\033[32mReading:\033[0m " << argv[1] << endl;
-    int l = 0;
+  istream * const fin = (fin_name ? new ifstream(fin_name) : &cin);
+  if (!fin_name || static_cast<ifstream*>(fin)->is_open()) {
+    if (fin_name) cout << "\033[32mReading:\033[0m " << fin_name << endl;
     string name, title;
     vector<Double_t> bins, vals; //, errs;
     // bins.reserve(100);
@@ -69,7 +100,8 @@ int main(int argc, char **argv)
     bool first_bin = false;
     TH1 *hist;
     line_t fsm = Begin;
-    while ( getline (fin,line) ) {
+    while ( getline (*fin,line) ) {
+      static int l = 0;
       ++l;
       if (!line.size()) continue;
 
@@ -149,7 +181,10 @@ int main(int argc, char **argv)
       (new TH1D("N","N",1,0,1))->Fill(0.5,events);
     }
 
-    fin.close();
+    if (fin_name) {
+      static_cast<ifstream*>(fin)->close();
+      delete fin;
+    }
   } else {
     cout << "Unable to open file " << argv[1] << endl;
     exit(1);
